@@ -1,137 +1,96 @@
-# Low-Rank Few-Shot Adaptation of Vision-Language Models [CVPRW 2024]
+# CLIP-LoRA
 
-The official implementation of [*Low-Rank Few-Shot Adaptation of Vision-Language Models*](https://arxiv.org/abs/2405.18541).
+这是一个基于CLIP和LoRA的图像分类项目，目前支持DTD（Describable Textures Dataset）数据集的训练和测试。
 
-**Authors**:
-[Maxime Zanella](https://scholar.google.com/citations?user=FIoE9YIAAAAJ&hl=fr&oi=ao),
-[Ismail Ben Ayed](https://scholar.google.com/citations?user=29vyUccAAAAJ&hl=fr&oi=ao).
+## 环境要求
 
-We present CLIP-LoRA, an easy-to-use few-shot method for Vision-Language Models with fixed hyperparameters for every task and every number of shots. This repository also aims at facilitating the usage of Low-Rank adapters (LoRA) in Vision-Language Models like CLIP.
+- Python 3.8+
+- PyTorch 1.7.1+
+- CUDA（推荐）
 
-<p align="center">
-  <img src="peft2.jpg" alt="PEFT" width="300" height="250">
-  <br>
-  <em>Figure 1: Low-Rank Adaptation (LoRA) is easy to use and does not create any additional inference latency.</em>
-</p>
+## 安装步骤
 
-Here is how to run the experiments:
-
-1. [Installation](#installation) 
-2. [Usage](#how-to-execute-CLIP-LoRA) 
-
-A quick guide on how LoRA is implemented in this repository:
-
-3. [LoRA in MultiheadAttention](#lora-in-multiheadattention)
-
-Please consider supporting our work:
-
-4. [Citation](#citation)
-
-If you have any inquiries:
-
-5. [Contact](#contact)
-   
-
-## Installation 
-
-### Environment configuration
-
-Our code requires an environment with PyTorch installed. If you don't have one, consider creating a Python environment with:
+1. 克隆项目
 ```bash
-conda create -y --name CLIP-LoRA python=3.10.0
-conda activate CLIP-LoRA
-```
-And install Pytorch for instance with:
-```bash
-pip3 install torch==2.0.1 torchaudio==2.0.2 torchvision==0.15.2
+git clone https://github.com/yourusername/CLIP-LoRA.git
+cd CLIP-LoRA
 ```
 
-### Datasets installation
+2. 创建并激活conda环境
+```bash
+conda create -n clip-lora python=3.8
+conda activate clip-lora
+```
 
-Please follow [DATASETS.md](DATASETS.md) to install the datasets.
+3. 安装依赖
+```bash
+pip install torch torchvision
+pip install git+https://github.com/openai/CLIP.git
+```
 
-## How to execute CLIP-LoRA
+4. 下载DTD数据集
+```bash
+# 下载DTD数据集并解压到data/dtd目录
+mkdir -p data/dtd
+cd data/dtd
+# 从官方网站下载数据集：https://www.robots.ox.ac.uk/~vgg/data/dtd/
+```
 
-Execute CLIP-LoRA on the ImageNet dataset with a random seed of 1 by entering the following command:
+## 使用方法
+
+### 训练模型
 
 ```bash
-python main.py --root_path /path/to/your/data --dataset imagenet --seed 1
+python main.py --root_path C:\Users\hxq11\Desktop\CLIP-LoRA\data\dtd --dataset dtd --seed 1 --save_path C:\Users\hxq11\Desktop\CLIP-LoRA\saved_models
 ```
 
-You can also exectute CLIP-LoRA on the 10 other datasets:
+主要参数说明：
+- `--dataset`: 数据集名称，目前支持 'dtd'
+- `--root_path`: 数据集根目录
+- `--backbone`: CLIP模型类型，可选 'ViT-B/32', 'ViT-B/16' 等
+- `--shots`: few-shot学习中每个类别的样本数
+- `--batch_size`: 训练时的批量大小
+- `--save_path`: 模型保存的根目录
+
+### 模型保存位置
+
+训练好的LoRA模型会按照以下结构保存：
+```
+{save_path}/{backbone}/{dataset}/{shots}shots/seed{seed}/{filename}.pt
+
+示例：
+saved_models/vitb32/dtd/1shots/seed1/model.pt
+```
+
+### 评估模型（暂未支持）
 
 ```bash
-python main.py --root_path /path/to/your/data --dataset dataset_name --seed 1
+python main.py \
+    --dataset dtd \
+    --root_path data/dtd \
+    --backbone ViT-B/32 \
+    --eval_only \
+    --resume path/to/your/checkpoint.pth
 ```
 
-You can optionally provide a save_path to save the LoRA modules, which can be reload easily with the --eval_only argument. The code will automatically check if your trained LoRA with the corresponding rank, alpha, encoder, params and position to ensure compatibility. The folder will be structured like that:
+## 数据集结构
+
+DTD数据集应按以下结构组织：
 ```
-/your/save/path
-└── backbone
-    └── dataset
-        └── Xshots
-            ├── seedY
-```
-
-Here is the command line:
-```bash
-python main.py --root_path /path/to/your/data --dataset dataset_name --seed 1 --save_path /your/save/path --eval_only 
-```
-
-## LoRA in MultiheadAttention
-
-The `PlainMultiheadAttentionLoRA` class in `loralib/layers.py` extends the standard PyTorch multi-head attention mechanism by incorporating Low-Rank Adaptation (LoRA). This class constructs explicit linear modules for each component of the attention mechanism—query (`q`), key (`k`), value (`v`), and output (`o`)—providing a structured and adaptable foundation for your experiments.
-
-### Class Overview
-
-`PlainMultiheadAttentionLoRA` takes an existing `nn.MultiheadAttention` module, replicates its configuration, and integrates LoRA linear modules.
-
-### Key Features
-
-- **Parameter Initialization:** The initialization process involves copying weights and biases from a pre-existing multi-head attention model. Each LoRA module (`q`, `k`, `v`, `o`) is adapted based on the specified requirements in the `enable_lora` list.
-- **LoRA Integration:** The replacement of standard linear layers with `LinearLoRA` layers introduces low-rank matrices, which are parameterized by the rank of adaptation (`r`) and the scaling factor (`lora_alpha`).
-- **Forward Pass:** The `forward_module` method manages the attention computation, incorporating optional dropout settings on the LoRA modules.
-
-### Example Usage
-
-The following snippet demonstrates how to initialize the `PlainMultiheadAttentionLoRA` with an existing multi-head attention module.
-
-```python
-from loralib.layers import PlainMultiheadAttentionLoRA
-
-# Initialize with an existing MultiheadAttention module
-existing_mha = nn.MultiheadAttention(embed_dim=512, num_heads=8)
-lora_mha = PlainMultiheadAttentionLoRA(existing_mha, enable_lora=['q', 'k', 'v', 'o'], r=4, lora_alpha=2)
+data/dtd/
+    ├── images/
+    │   ├── banded/
+    │   ├── blotchy/
+    │   └── ...
+    └── labels/
+        ├── train1.txt
+        ├── val1.txt
+        └── test1.txt
 ```
 
-## Few-shot performance
+## 注意事项
 
-<p align="center">
-  <img src="few_shot.png" alt="few_shot" width="750" height="500">
-  <br>
-  <em>Figure 2: Detailed few-shot learning results on the 10 fine-grained datasets and ImageNet with the ViT-B/16 visual backbone. Average performance for the ViT-B/16, ViT-B/32 and ViT-L/14 on the same 11 datasets is reported in the last three plots.</em>
-</p>
-
-## Citation
-
-If you find this project useful, please cite it as follows:
-
-```bibtex
-@inproceedings{zanella2024low,
-  title={Low-Rank Few-Shot Adaptation of Vision-Language Models},
-  author={Zanella, Maxime and Ben Ayed, Ismail},
-  booktitle={Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition Workshops},
-  pages={1593--1603},
-  year={2024}
-}
-```
-
-## Contact
-
-For any inquiries, feel free to [create an issue](https://github.com/MaxZanella/CLIP-LoRA/issues) or contact us at [maxime.zanella@uclouvain.be](mailto:maxime.zanella@uclouvain.be).
-
-## Acknowledgement
-
-We express our gratitude to the [CoOp](https://github.com/KaiyangZhou/CoOp) and [Tip-Adapter](https://github.com/gaopengcuhk/Tip-Adapter) authors for their open-source contribution.
-
+1. 首次运行时会自动下载CLIP预训练模型
+2. 确保有足够的GPU内存用于训练
+3. 训练日志和模型检查点会保存在项目目录下
 
