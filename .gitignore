@@ -1,0 +1,20 @@
+# Directories
+data/
+__pycache__/
+saved_models/
+.vscode/
+
+# Files
+*.pyc
+*.pth
+*.pt
+
+# IDE specific files
+.idea/
+.vs/
+*.swp
+*.swo
+
+# OS specific files
+.DS_Store
+Thumbs.db 
